@@ -24,6 +24,65 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test.describe('Game Catalog Filters', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByTestId('games-grid')).toBeVisible();
+    });
+
+    test('filters by one or more categories and clears the selection', async ({ page }) => {
+      await test.step('Select one category', async () => {
+        await page.getByRole('checkbox', { name: 'Strategy' }).check();
+        await expect(page.locator('[data-testid="game-card"]:visible')).toHaveCount(4);
+        await expect(page.getByTestId('filter-results-status')).toHaveText('4 games shown');
+      });
+
+      await test.step('Add another category', async () => {
+        await page.getByRole('checkbox', { name: 'Puzzle' }).check();
+        await expect(page.locator('[data-testid="game-card"]:visible')).toHaveCount(8);
+        await expect(page.getByTestId('filter-results-status')).toHaveText('8 games shown');
+      });
+
+      await test.step('Clear category filters', async () => {
+        await page.getByTestId('clear-filters').click();
+        await expect(page.locator('[data-testid="game-card"]:visible')).toHaveCount(21);
+        await expect(page.getByTestId('filter-results-status')).toHaveText('21 games shown');
+      });
+    });
+
+    test('filters by publisher', async ({ page }) => {
+      await page.getByLabel('Publisher').selectOption({ label: 'CodeForge Studios' });
+
+      await expect(page.locator('[data-testid="game-card"]:visible')).toHaveCount(6);
+      await expect(page.getByTestId('filter-results-status')).toHaveText('6 games shown');
+    });
+
+    test('combines category and publisher filters', async ({ page }) => {
+      await page.getByRole('checkbox', { name: 'Strategy' }).check();
+      await page.getByLabel('Publisher').selectOption({ label: 'CodeForge Studios' });
+
+      const visibleCards = page.locator('[data-testid="game-card"]:visible');
+      await expect(visibleCards).toHaveCount(1);
+      await expect(visibleCards.getByTestId('game-title')).toHaveText('DevOps Dominion');
+      await expect(page.getByTestId('filter-results-status')).toHaveText('1 game shown');
+    });
+
+    test('supports keyboard filtering with a visible focus indicator', async ({ page }) => {
+      const strategyFilter = page.getByRole('checkbox', { name: 'Strategy' });
+
+      await strategyFilter.press('Space');
+      await expect(strategyFilter).toBeChecked();
+      await expect(strategyFilter).toBeFocused();
+      await expect(page.getByTestId('filter-results-status')).toHaveText('4 games shown');
+
+      const hasVisibleFocus = await strategyFilter.evaluate((element) => {
+        const styles = window.getComputedStyle(element);
+        return styles.outline !== 'none' || styles.boxShadow !== 'none';
+      });
+      expect(hasVisibleFocus).toBeTruthy();
+    });
+  });
+
   test('should navigate to correct game details page when clicking on a game', async ({ page }) => {
     let gameId: string | null;
     let gameTitle: string | null;
