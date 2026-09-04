@@ -96,5 +96,6 @@ The application lives at the repository root:
 - `src/styles/`: CSS and Tailwind configuration
 - `src/types/`: TypeScript interfaces (Game, Publisher, Category)
 - `e2e-tests/`: Playwright E2E tests (home, games, accessibility)
+- `.github/extensions/`: shared Copilot canvases for database exploration and issue triage
 - `drizzle.config.ts`, `vitest.config.ts`, `astro.config.mjs`, `playwright.config.ts`: tooling config
 - `README.md`: Project documentation
