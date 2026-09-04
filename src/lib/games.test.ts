@@ -6,6 +6,7 @@ import {
     getAllGames,
     getAllGameIds,
     getGameById,
+    getFilteredGames,
 } from './games';
 
 async function seedGames(db: Database, count: number): Promise<void> {
@@ -28,6 +29,71 @@ async function seedGames(db: Database, count: number): Promise<void> {
             publisherId: publisher.id,
         });
     }
+}
+
+interface FilterFixture {
+    actionCategoryId: number;
+    puzzleCategoryId: number;
+    strategyCategoryId: number;
+    firstPublisherId: number;
+    secondPublisherId: number;
+}
+
+async function seedFilterGames(db: Database): Promise<FilterFixture> {
+    const [action, puzzle, strategy] = await db
+        .insert(categories)
+        .values([
+            { name: 'Action', description: 'Action games' },
+            { name: 'Puzzle', description: 'Puzzle games' },
+            { name: 'Strategy', description: 'Strategy games' },
+        ])
+        .returning({ id: categories.id });
+    const [firstPublisher, secondPublisher] = await db
+        .insert(publishers)
+        .values([
+            { name: 'First Publisher', description: 'First publisher' },
+            { name: 'Second Publisher', description: 'Second publisher' },
+        ])
+        .returning({ id: publishers.id });
+
+    await db.insert(games).values([
+        {
+            title: 'Delta Action',
+            description: 'Action from the second publisher',
+            starRating: 4.1,
+            categoryId: action.id,
+            publisherId: secondPublisher.id,
+        },
+        {
+            title: 'Beta Puzzle',
+            description: 'Puzzle from the first publisher',
+            starRating: 4.2,
+            categoryId: puzzle.id,
+            publisherId: firstPublisher.id,
+        },
+        {
+            title: 'Gamma Strategy',
+            description: 'Strategy from the second publisher',
+            starRating: 4.3,
+            categoryId: strategy.id,
+            publisherId: secondPublisher.id,
+        },
+        {
+            title: 'Alpha Action',
+            description: 'Action from the first publisher',
+            starRating: 4.4,
+            categoryId: action.id,
+            publisherId: firstPublisher.id,
+        },
+    ]);
+
+    return {
+        actionCategoryId: action.id,
+        puzzleCategoryId: puzzle.id,
+        strategyCategoryId: strategy.id,
+        firstPublisherId: firstPublisher.id,
+        secondPublisherId: secondPublisher.id,
+    };
 }
 
 describe('games data-access helpers', () => {
@@ -62,5 +128,74 @@ describe('games data-access helpers', () => {
     it('returns null for a non-existent game', async () => {
         await seedGames(db, 2);
         expect(await getGameById(db, 99999)).toBeNull();
+    });
+
+    it('filters games by one category', async () => {
+        const fixture = await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, {
+            categoryIds: [fixture.actionCategoryId],
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual([
+            'Alpha Action',
+            'Delta Action',
+        ]);
+    });
+
+    it('matches games in any selected category', async () => {
+        const fixture = await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, {
+            categoryIds: [fixture.actionCategoryId, fixture.puzzleCategoryId],
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual([
+            'Alpha Action',
+            'Beta Puzzle',
+            'Delta Action',
+        ]);
+    });
+
+    it('filters games by publisher', async () => {
+        const fixture = await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, {
+            publisherId: fixture.secondPublisherId,
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual([
+            'Delta Action',
+            'Gamma Strategy',
+        ]);
+    });
+
+    it('combines category and publisher filters', async () => {
+        const fixture = await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, {
+            categoryIds: [fixture.actionCategoryId],
+            publisherId: fixture.firstPublisherId,
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual(['Alpha Action']);
+    });
+
+    it('returns an empty collection when no games match', async () => {
+        const fixture = await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, {
+            categoryIds: [fixture.strategyCategoryId],
+            publisherId: fixture.firstPublisherId,
+        });
+
+        expect(filtered).toEqual([]);
+    });
+
+    it('treats an empty category selection as unfiltered', async () => {
+        await seedFilterGames(db);
+        const filtered = await getFilteredGames(db, { categoryIds: [] });
+
+        expect(filtered.map((game) => game.title)).toEqual([
+            'Alpha Action',
+            'Beta Puzzle',
+            'Delta Action',
+            'Gamma Strategy',
+        ]);
     });
 });
