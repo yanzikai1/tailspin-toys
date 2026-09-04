@@ -112,8 +112,8 @@ function renderCard(issue, featured) {
                 : ""
         }
         <div class="card-actions">
-            <a href="${escapeHtml(issue.url)}" target="_blank" rel="noreferrer">View issue</a>
-            <button type="button" data-issue="${issue.number}">Add to context</button>
+            <a href="${escapeHtml(issue.url)}" target="_blank" rel="noreferrer" data-testid="view-issue-${issue.number}">View issue</a>
+            <button type="button" data-issue="${issue.number}" data-testid="add-issue-${issue.number}">Add to context</button>
         </div>
     </article>`;
 }
